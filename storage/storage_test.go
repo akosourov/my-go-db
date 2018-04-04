@@ -7,12 +7,20 @@ import (
 func TestGetString(t *testing.T) {
 	s := New()
 	s.Set("key", "testValue", 0)
-	value := s.Get("key")
-	valueStr := value.(string)
-	if valueStr != "testValue" {
-		t.Error()
+	s.Set("key2", 123, 0)
+
+	value, _ := s.GetString("key")
+	if value != "testValue" {
+		t.Error("Must be equal")
 	}
+
+	if _, ok := s.GetString("key2"); !ok {
+		t.Error("Must be not found")
+	}
+
 }
+
+
 
 func TestGetFromList(t *testing.T) {
 	s := New()

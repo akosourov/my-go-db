@@ -9,8 +9,13 @@ import (
 )
 
 type Item struct {
-	Value      interface{}
-	expiration int64
+	Value          interface{}
+
+	ValueInt       int
+	ValueStr       string
+	ValueSliceInt  []int
+	ValueSliceStr  []string
+	expiration     int64
 }
 
 type Storage struct {
@@ -25,29 +30,118 @@ func New() *Storage {
 	}
 }
 
-func (s *Storage) Set(key string, value interface{}, ttl int64) {
+func calculateExpiration(ttl int) int64 {
+	var exp int64
+	if ttl > 0 {
+		exp = time.Now().UnixNano() + int64(ttl)*1000*1000*1000
+	}
+	return exp
+}
+
+func (s *Storage) SetString(key, value string, ttl int) {
+	exp := calculateExpiration(ttl)
+
+	item := new(Item)
+	item.expiration = exp
+	item.ValueStr = value
+
+	s.mu.Lock()
+	s.items[key] = item
+	s.mu.Unlock()
+}
+
+func (s *Storage) SetInt(key string, value, ttl int) {
+	exp := calculateExpiration(ttl)
+
+	item := new(Item)
+	item.expiration = exp
+	item.ValueInt = value
+	// todo value = 0
+
+	s.mu.Lock()
+	s.items[key] = item
+	s.mu.Unlock()
+}
+
+func (s *Storage) Set(key string, value interface{}, ttl int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var exp int64
 	if ttl > 0 {
-		exp = time.Now().UnixNano() + ttl*1000*1000*1000
+		exp = time.Now().UnixNano() + int64(ttl)*1000*1000*1000
 	}
-	item := Item{
-		Value:      value,
-		expiration: exp,
+
+	item := new(Item)
+	item.expiration = exp
+
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.String:
+		item.ValueStr = v.Interface().(string)
+	case reflect.Int:
+		fmt.Println("Value is int")
+		item.ValueInt = v.Interface().(int)
+	case reflect.Slice:
+		if v.Len() > 0 {
+			elemV := v.Index(0)
+			switch elemV.Kind() {
+			case reflect.Int:
+				item.ValueSliceInt = v.Interface().([]int)
+			case reflect.String:
+				item.ValueSliceStr = v.Interface().([]string)
+			}
+		} else {
+			return
+		}
+	default:
+		fmt.Println("Value is %v %T", value, value)
+		return
 	}
-	s.items[key] = &item
+
+	s.items[key] = item
 }
+
+
+func (s *Storage) GetItem(key string) *Item {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.items[key]
+}
+
 
 func (s *Storage) Get(key string) interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	item := s.items[key]
 	if item != nil {
-		return item.Value
-	} else {
-		return nil
+		if item.ValueStr != "" {
+			return item.ValueStr
+		} else if item.ValueInt > 0 {
+			// todo int == 0
+			return item.ValueInt
+		}
 	}
+	return nil
+}
+
+func (s *Storage) GetString(key string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	item := s.items[key]
+	if item != nil {
+		return item.ValueStr, true
+	}
+	return "", false
+}
+
+func (s *Storage) GetInt(key string) (int, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	item := s.items[key]
+	if item != nil {
+		return item.ValueInt, true
+	}
+	return 0, false
 }
 
 func (s *Storage) GetFromList(key string, idx int) (interface{}, error) {
@@ -72,6 +166,7 @@ func (s *Storage) GetFromList(key string, idx int) (interface{}, error) {
 	}
 	return nil, errors.New(fmt.Sprintf("Item: %v is not a list", item.Value))
 }
+
 
 func (s *Storage) GetFromDict(key, dkey string) (interface{}, error) {
 	s.mu.Lock()

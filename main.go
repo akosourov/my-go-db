@@ -53,7 +53,7 @@ func main() {
 			}
 			switch strings.ToUpper(cmd) {
 			case "SET":
-				value, _ := cl.SetValue(key, value, int64(ttl))
+				value, _ := cl.SetValue(key, value, ttl)
 				fmt.Println(value)
 			}
 		}
