@@ -30,7 +30,8 @@ func New(bindAddr string) *Server {
 
 func (s *Server) Start() {
 	go func() {
-		s.echo.Logger.Fatal(s.echo.Start(s.bindAddr))
+		s.echo.Start(s.bindAddr)
+		fmt.Print("DONE")
 	}()
 	go func() {
 		for range time.Tick(1) {
@@ -45,25 +46,43 @@ func (s *Server) getValue(c echo.Context) error {
 	key := c.Param("key")
 
 	resp := new(ResponseBody)
-	status := http.StatusNotFound
 	item := s.storage.GetItem(key)
 	if item != nil {
-		if item.ValueInt > 0 {
-			status = http.StatusOK
-			resp.ValueInt = item.ValueInt
-		} else if item.ValueStr != "" {
-			status = http.StatusOK
-			resp.ValueStr = item.ValueStr
+		if item.String != "" {
+			resp.Success = true
+			resp.String = item.String
+			return c.JSON(http.StatusOK, resp)
+		} else if item.Int > 0 {
+			resp.Success = true
+			resp.Int = item.Int
+			return c.JSON(http.StatusOK, resp)
+		} else if item.StringSlice != nil {
+			resp.Success = true
+			resp.StringList = item.StringSlice
+			return c.JSON(http.StatusOK, resp)
+		} else if item.IntSlice != nil {
+			resp.Success = true
+			resp.IntList = item.IntSlice
+			return c.JSON(http.StatusOK, resp)
+		} else if item.StringMap != nil {
+			resp.Success = true
+			resp.StringDict = item.StringMap
+			return c.JSON(http.StatusOK, resp)
+		} else if item.IntMap != nil {
+			resp.Success = true
+			resp.IntDict = item.IntMap
+			return c.JSON(http.StatusOK, resp)
 		}
 	}
 	resp.Message = "Not found"
-	return c.JSON(status, resp)
+	return c.JSON(http.StatusNotFound, resp)
 }
 
 // POST /storage/:key
 func (s *Server) setValue(c echo.Context) error {
-	req := RequestBody{}
-	if err := c.Bind(&req); err != nil {
+	reqBody := RequestBody{}
+
+	if err := c.Bind(&reqBody); err != nil {
 		return c.JSON(http.StatusBadRequest, &ResponseBody{
 			Success: false,
 			Message: fmt.Sprintf("Could not set value: %v", err.Error()),
@@ -72,28 +91,26 @@ func (s *Server) setValue(c echo.Context) error {
 
 	key := c.Param("key")
 
-	var value interface{}
-	fmt.Println(req.ValueStr)
-	if req.ValueStr != "" {
-		value = req.ValueStr
-		s.storage.SetString(key, req.ValueStr, req.TTL)
-	} else if req.ValueInt > 0 {
-		value = req.ValueInt
-		s.storage.SetInt(key, req.ValueInt, req.TTL)
+	if reqBody.String != "" {
+		s.storage.SetString(key, reqBody.String, reqBody.TTL)
+	} else if reqBody.Int > 0 {
+		s.storage.SetInt(key, reqBody.Int, reqBody.TTL)
+	} else if reqBody.StringList != nil {
+		s.storage.SetStringSlice(key, reqBody.StringList, reqBody.TTL)
+	} else if reqBody.IntList != nil {
+		s.storage.SetIntSlice(key, reqBody.IntList, reqBody.TTL)
+	} else if reqBody.StringDict != nil {
+		s.storage.SetStringMap(key, reqBody.StringDict, reqBody.TTL)
+	} else {
+		return c.JSON(http.StatusBadRequest, &ResponseBody{
+			Success: false,
+			Message: "Unsupported type",
+		})
 	}
-	//if req.ItemText != "" {
-	//	value = req.ItemText
-	//} else if req.ItemTextArray != nil {
-	//	value = req.ItemTextArray
-	//} else if req.ItemTextDict != nil {
-	//	value = req.ItemTextDict
-	//}
-
-	//s.storage.Set(key, value, req.TTL)
 
 	return c.JSON(http.StatusOK, &ResponseBody{
 		Success: true,
-		Message: fmt.Sprintf("Set value: %v", value),
+		Message: "Done",
 	})
 }
 
@@ -110,11 +127,12 @@ func (s *Server) deleteValue(c echo.Context) error {
 	})
 }
 
+// GET /storage/
 func (s *Server) getKeys(c echo.Context) error {
 	keys := s.storage.Keys()
 	return c.JSON(http.StatusOK, &ResponseBody{
 		Success: true,
-		Value:   keys,
+		Keys:   keys,
 	})
 }
 

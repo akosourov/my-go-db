@@ -1,19 +1,26 @@
 package server
 
 type RequestBody struct {
-	ValueStr      string            `json:"value_str"`
-	ValueInt      int               `json:"value_int"`
-	ItemText      string            `json:"item_text"`
-	ItemTextArray []string          `json:"item_text_array"`
-	ItemTextDict  map[string]string `json:"item_text_dict"`
-	TTL           int               `json:"ttl"`
+	String        string            `json:"string,omitempty"`
+	Int           int               `json:"int,omitempty"`
+	StringList    []string          `json:"string_list,omitempty"`
+	IntList       []int             `json:"int_list,omitempty"`
+	StringDict    map[string]string `json:"string_dict,omitempty"`
+	IntDict       map[string]int    `json:"int_dict,omitempty"`
+
+	TTL           int               `json:"ttl,omitempty"`
 }
 
 type ResponseBody struct {
-	Success       bool        `json:"success"`
-	Message       string      `json:"message,omitempty"`
-	Value         interface{} `json:"value,omitempty"`
-	ValueStr      string      `json:"value_str,omitempty"`
-	ValueInt      int         `json:"valuet_int,omitempty"`
-	ValueSliceInt []int       `json:"value_slice_int,omitempty"`
+	Success       bool              `json:"success"`
+	Message       string            `json:"message,omitempty"`
+
+	String        string            `json:"string,omitempty"`
+	Int           int               `json:"int,omitempty"`
+	StringList    []string          `json:"string_list,omitempty"`
+	IntList       []int             `json:"int_list,omitempty"`
+	StringDict    map[string]string `json:"string_dict,omitempty"`
+	IntDict       map[string]int    `json:"int_dict,omitempty"`
+
+	Keys          []string          `json:"keys,omitempty"`
 }
