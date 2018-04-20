@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"my-go-db/server"
 	"os"
 	"strconv"
 	"strings"
 	"flag"
+	"bufio"
 )
 
 const listSep = ","
@@ -153,24 +153,37 @@ func CMD_REMOVE(c *server.Client, key string) {
 }
 
 
-func main() {
+func printUsage() {
+	fmt.Println("my-go-db is a tool to run server or client to server")
+}
 
-	startServer := flag.Bool("start", true, "Start db server if need")
-	host := flag.String("host", "localhost", "Server host")
-	port := flag.String("port", "8080", "Server port")
+
+var host string
+var port string
+
+
+func init() {
+	flag.StringVar(&host, "host", "localhost", "Server's host")
+	flag.StringVar(&port, "port", "8080", "Server's port")
 	flag.Parse()
+}
 
-	prompt = fmt.Sprintf("%s:%s$ >>> ", *host, *port)
 
-	if *startServer {
-		fmt.Println("Starting server...")
-		s := server.New(":" + *port)
-		s.Start()
-	}
+func startServer() {
+	fmt.Println("Starting server on port", port)
+	s := server.New(":" + port)
+	s.Start()
+	s.WaitStop()
+}
 
-	fmt.Println("Connecting to server...")
 
-	client := server.NewClient(*host, *port)
+func startClient() {
+	fmt.Printf("Connecting to server http://%s:%s\n", host, port)
+
+	prompt = fmt.Sprintf("%s:%s$ >>> ", host, port)
+
+
+	client := server.NewClient(host, port)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	printPromt()
@@ -211,5 +224,22 @@ func main() {
 	}
 	if scanner.Err() != nil {
 		fmt.Printf("Error: %v", scanner.Err())
+	}
+}
+
+
+func main() {
+	if len(os.Args) < 2 {
+		printUsage()
+		return
+	}
+
+	switch os.Args[1] {
+	case "server":
+		startServer()
+	case "client":
+		startClient()
+	default:
+		printUsage()
 	}
 }

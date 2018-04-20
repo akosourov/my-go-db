@@ -3,15 +3,18 @@ package server
 import (
 	"fmt"
 	"github.com/labstack/echo"
+	"github.com/labstack/gommon/log"
 	"my-go-db/storage"
 	"net/http"
 	"time"
+	"sync"
 )
 
 type Server struct {
 	storage  *storage.Storage
 	bindAddr string
 	echo     *echo.Echo
+	wg       *sync.WaitGroup
 }
 
 func New(bindAddr string) *Server {
@@ -19,19 +22,25 @@ func New(bindAddr string) *Server {
 		storage:  storage.New(),
 		bindAddr: bindAddr,
 		echo:     echo.New(),
+		wg:       new(sync.WaitGroup),
 	}
+
 	g := s.echo.Group("/storage")
 	g.GET("/", s.getKeys)
 	g.GET("/:key", s.getValue)
 	g.POST("/:key", s.setValue)
 	g.DELETE("/:key", s.deleteValue)
+
+	s.echo.Logger.SetLevel(log.DEBUG)
 	return s
 }
 
 func (s *Server) Start() {
+	s.wg.Add(1)
 	go func() {
-		s.echo.Start(s.bindAddr)
-		fmt.Print("DONE")
+		err := s.echo.Start(s.bindAddr)
+		fmt.Println("Server was stopped:", err.Error())
+		s.wg.Done()
 	}()
 	go func() {
 		for range time.Tick(1) {
@@ -39,6 +48,10 @@ func (s *Server) Start() {
 		}
 	}()
 
+}
+
+func (s *Server) WaitStop() {
+	s.wg.Wait()
 }
 
 // GET /storage/:key
